@@ -25,7 +25,8 @@ def daily_summary(request):
     start_date = request.query_params.get('start_date')
     end_date = request.query_params.get('end_date')
 
-    readings = Reading.objects.filter(is_deleted=False)
+    # CORREGIR: Eliminar .filter(is_deleted=False) ya que Reading no tiene ese campo
+    readings = Reading.objects.all()  # <-- CAMBIADO
 
     if node_id:
         readings = readings.filter(node_id=node_id)

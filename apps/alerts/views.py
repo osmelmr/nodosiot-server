@@ -1,3 +1,5 @@
+# apps/alerts/views.py
+
 from django.utils.dateparse import parse_datetime
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -19,7 +21,8 @@ def alert_list_create(request):
     List all alerts or create a new alert.
     """
     if request.method == 'GET':
-        alerts = Alert.objects.filter(is_deleted=False)
+        # ELIMINAR: .filter(is_deleted=False) - usar todos
+        alerts = Alert.objects.all()  # <-- CAMBIADO
         serializer = AlertSerializer(alerts, many=True)
         return Response(serializer.data)
 
@@ -42,7 +45,8 @@ def alert_detail(request, pk):
     Retrieve, update, or delete an alert by pk.
     """
     try:
-        alert = Alert.objects.get(pk=pk, is_deleted=False)
+        # ELIMINAR: , is_deleted=False - buscar todos
+        alert = Alert.objects.get(pk=pk)  # <-- CAMBIADO
     except Alert.DoesNotExist:
         return Response({"error": "Alert not found"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -66,8 +70,8 @@ def alert_detail(request, pk):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     if request.method == 'DELETE':
-        alert.is_deleted = True
-        alert.save(update_fields=['is_deleted'])
+        # ELIMINAR: soft delete - usar eliminación física
+        alert.delete()  # <-- CAMBIADO: eliminación física
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

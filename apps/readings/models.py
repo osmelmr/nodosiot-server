@@ -39,7 +39,13 @@ class Reading(models.Model):
         default=ValidationStatus.VALID,
         verbose_name="Validation status"
     )
-
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        editable=False,
+        verbose_name="Creation date",
+        null=True,
+        blank=True
+    )
     class Meta:
         verbose_name = "Reading"
         verbose_name_plural = "Readings"

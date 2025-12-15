@@ -15,7 +15,9 @@ from reportlab.pdfgen import canvas
 @api_view(['GET'])
 @permission_classes([IsAdminOrReadOnly])
 def export_readings_csv(request):
-    readings = Reading.objects.filter(is_deleted=False)
+    # CORREGIDO: Eliminar .filter(is_deleted=False) - Reading no tiene ese campo
+    readings = Reading.objects.all()  # <-- CAMBIADO
+    
     # opcional: filtrar por sensor, nodo, fechas
     output = StringIO()
     writer = csv.writer(output)
@@ -30,12 +32,25 @@ def export_readings_csv(request):
 @api_view(['GET'])
 @permission_classes([IsAdminOrReadOnly])
 def export_alerts_csv(request):
-    alerts = Alert.objects.filter(is_deleted=False)
+    # CORREGIDO: Eliminar .filter(is_deleted=False) - Alert no tiene ese campo
+    alerts = Alert.objects.all()  # <-- CAMBIADO
+    
     output = StringIO()
     writer = csv.writer(output)
     writer.writerow(['pk', 'Sensor', 'Nodo', 'Tipo alerta', 'Valor', 'Timestamp', 'Estado'])
+    
+    # CORREGIDO: Alert tiene 'detected_value', no 'timestamp'. Usar 'created_at' en su lugar
     for a in alerts:
-        writer.writerow([a.pk, a.sensor.name, a.node.name, a.alert_type, a.detected_value, a.timestamp, a.status])
+        writer.writerow([
+            a.pk, 
+            a.sensor.name, 
+            a.node.name, 
+            a.alert_type, 
+            a.detected_value, 
+            a.created_at,  # <-- CAMBIADO: Alert no tiene timestamp, usar created_at
+            a.status
+        ])
+    
     response = HttpResponse(output.getvalue(), content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="alerts.csv"'
     return response
@@ -47,7 +62,9 @@ def export_alerts_csv(request):
 @api_view(['GET'])
 @permission_classes([IsAdminOrReadOnly])
 def export_readings_pdf(request):
-    readings = Reading.objects.filter(is_deleted=False)
+    # CORREGIDO: Eliminar .filter(is_deleted=False)
+    readings = Reading.objects.all()  # <-- CAMBIADO
+    
     buffer = BytesIO()
     p = canvas.Canvas(buffer)
     y = 800
