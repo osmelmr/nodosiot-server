@@ -1,4 +1,3 @@
-import uuid
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 
@@ -32,25 +31,13 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractUser):
-    """
-    Modelo de usuario personalizado usando email como identificador principal
-    y con UUID único.
-    """
 
     class Roles(models.TextChoices):
         ADMIN = "admin", "Administrador"
         RESEARCHER = "researcher", "Investigador"
-        FARMER = "farmer", "Agricultor"
 
     # Eliminamos el campo username
     username = None
-
-    # UUID único para cada usuario
-    uuid = models.UUIDField(
-        default=uuid.uuid4,
-        editable=False,
-        unique=True
-    )
 
     email = models.EmailField(
         unique=True,
@@ -60,14 +47,11 @@ class User(AbstractUser):
     role = models.CharField(
         max_length=20,
         choices=Roles.choices,
-        default=Roles.FARMER,
+        default=Roles.ADMIN,
         verbose_name="Rol del usuario"
     )
 
     is_active = models.BooleanField(default=True)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []  # no se requiere ningún campo adicional

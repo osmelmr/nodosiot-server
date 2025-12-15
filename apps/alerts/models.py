@@ -1,11 +1,10 @@
 from django.db import models
-from apps.core.models import BaseModel
 from apps.readings.models import Reading
 from apps.sensors.models import Sensor
 from apps.nodes.models import Node
 
 
-class Alert(BaseModel):
+class Alert(models.Model):
     """
     Represents an alert triggered when a reading exceeds a critical threshold.
     """
@@ -15,12 +14,15 @@ class Alert(BaseModel):
         ATTENDED = "attended", "Attended"
 
     class AlertType(models.TextChoices):
-        HIGH_TEMPERATURE = "high_temperature", "High Temperature"
-        LOW_HUMIDITY = "low_humidity", "Low Humidity"
-        HIGH_PRESSURE = "high_pressure", "High Pressure"
-        HIGH_LUMINOSITY = "high_luminosity", "High Luminosity"
-        HIGH_WIND = "high_wind", "High Wind"
+        HIGH = "high", "High"
+        LOW = "low", "Low"
 
+    alert_type = models.CharField(
+        max_length=20,
+        choices=AlertType.choices,
+        verbose_name="Alert type"
+    )
+    
     sensor = models.ForeignKey(
         Sensor,
         on_delete=models.CASCADE,
@@ -42,12 +44,6 @@ class Alert(BaseModel):
         verbose_name="Reading"
     )
 
-    alert_type = models.CharField(
-        max_length=30,
-        choices=AlertType.choices,
-        verbose_name="Type of alert"
-    )
-
     detected_value = models.FloatField(verbose_name="Detected value")
 
     status = models.CharField(
@@ -55,6 +51,17 @@ class Alert(BaseModel):
         choices=AlertStatus.choices,
         default=AlertStatus.PENDING,
         verbose_name="Alert status"
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        editable=False,
+        verbose_name="Creation date"
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Last update"
     )
 
     class Meta:

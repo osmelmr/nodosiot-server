@@ -7,7 +7,6 @@ class NodeSerializer(serializers.ModelSerializer):
         model = Node
         fields = (
             "id",
-            "uuid",
             "name",
             "description",
             "location",
@@ -17,10 +16,10 @@ class NodeSerializer(serializers.ModelSerializer):
             "is_deleted",
             "created_at",
             "updated_at",
+            "sampling_interval",
         )
         read_only_fields = (
             "id",
-            "uuid",
             "is_deleted",
             "created_at",
             "updated_at",

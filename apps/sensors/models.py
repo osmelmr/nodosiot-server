@@ -42,11 +42,7 @@ class Sensor(BaseModel):
         max_length=10,
         verbose_name="Unit of measure"
     )
-
-    # Umbrales automáticos para alertas
-    min_value = models.FloatField(null=True, blank=True, verbose_name="Minimum allowed value")
-    max_value = models.FloatField(null=True, blank=True, verbose_name="Maximum allowed value")
-
+    
     class Meta:
         verbose_name = "Sensor"
         verbose_name_plural = "Sensors"

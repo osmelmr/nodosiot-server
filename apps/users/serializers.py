@@ -7,34 +7,34 @@ User = get_user_model()
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         write_only=True,
-        required=True,
-        min_length=8
+        required=False,
     )
 
     class Meta:
         model = User
         fields = (
             "id",
-            "uuid",
             "email",
             "password",
             "role",
-            "is_active",
-            "created_at",
-            "updated_at",
         )
         read_only_fields = (
             "id",
-            "uuid",
-            "created_at",
-            "updated_at",
         )
 
     def create(self, validated_data):
-        password = validated_data.pop("password")
-        user = User(**validated_data)
-        user.set_password(password)
-        user.save()
+        password = validated_data.pop("password", None)
+
+        user = User.objects.create_user(
+            password=password,
+            **validated_data
+        )
+
+        # 🔒 Regla de negocio: superuser siempre es ADMIN
+        if user.is_superuser:
+            user.role = User.Roles.ADMIN
+            user.save(update_fields=["role"])
+
         return user
 
     def update(self, instance, validated_data):
@@ -45,6 +45,10 @@ class UserSerializer(serializers.ModelSerializer):
 
         if password:
             instance.set_password(password)
+
+        # 🔒 Regla de negocio: superuser siempre es ADMIN
+        if instance.is_superuser:
+            instance.role = User.Roles.ADMIN
 
         instance.save()
         return instance

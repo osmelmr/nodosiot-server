@@ -19,9 +19,9 @@ def export_readings_csv(request):
     # opcional: filtrar por sensor, nodo, fechas
     output = StringIO()
     writer = csv.writer(output)
-    writer.writerow(['UUID', 'Sensor', 'Nodo', 'Valor', 'Timestamp'])
+    writer.writerow(['pk', 'Sensor', 'Nodo', 'Valor', 'Timestamp'])
     for r in readings:
-        writer.writerow([r.uuid, r.sensor.name, r.node.name, r.value, r.timestamp])
+        writer.writerow([r.pk, r.sensor.name, r.node.name, r.value, r.timestamp])
     response = HttpResponse(output.getvalue(), content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="readings.csv"'
     return response
@@ -33,9 +33,9 @@ def export_alerts_csv(request):
     alerts = Alert.objects.filter(is_deleted=False)
     output = StringIO()
     writer = csv.writer(output)
-    writer.writerow(['UUID', 'Sensor', 'Nodo', 'Tipo alerta', 'Valor', 'Timestamp', 'Estado'])
+    writer.writerow(['pk', 'Sensor', 'Nodo', 'Tipo alerta', 'Valor', 'Timestamp', 'Estado'])
     for a in alerts:
-        writer.writerow([a.uuid, a.sensor.name, a.node.name, a.alert_type, a.detected_value, a.timestamp, a.status])
+        writer.writerow([a.pk, a.sensor.name, a.node.name, a.alert_type, a.detected_value, a.timestamp, a.status])
     response = HttpResponse(output.getvalue(), content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="alerts.csv"'
     return response
@@ -54,7 +54,7 @@ def export_readings_pdf(request):
     p.drawString(100, y, "Listado de Lecturas")
     y -= 30
     for r in readings:
-        line = f"{r.uuid} | {r.sensor.name} | {r.node.name} | {r.value} | {r.timestamp}"
+        line = f"{r.pk} | {r.sensor.name} | {r.node.name} | {r.value} | {r.timestamp}"
         p.drawString(50, y, line)
         y -= 20
         if y < 50:

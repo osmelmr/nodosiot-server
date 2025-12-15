@@ -1,18 +1,17 @@
 from django.db import models
-from apps.core.models import BaseModel
 from apps.sensors.models import Sensor
 from apps.nodes.models import Node
 
 
-class Reading(BaseModel):
+class Reading(models.Model):
     """
     Represents a measurement reading from a sensor at a specific node.
     """
 
     class ValidationStatus(models.TextChoices):
         VALID = "valid", "Valid"
-        OUT_OF_RANGE = "out_of_range", "Out of Range"
-        ERROR = "error", "Error"
+        HIGH = "high", "High"
+        LOW = "low", "Low"
 
     sensor = models.ForeignKey(
         Sensor,

@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from .models import Node
 from .serializers import NodeSerializer
-from apps.core.permissions import IsAdminOrReadOnly
+from apps.core.permissions import IsAdminOrReadOnly,IsOwnerAndAdminOrReadOnly
 
 # -----------------------------
 # CRUD de nodos
@@ -23,19 +23,19 @@ def node_list_create(request):
     if request.method == 'POST':
         serializer = NodeSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(user=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET', 'PATCH', 'DELETE'])
-@permission_classes([IsAdminOrReadOnly])
-def node_detail(request, uuid):
+@permission_classes([IsOwnerAndAdminOrReadOnly])
+def node_detail(request, pk):
     """
-    Retrieve, update, or delete a node by UUID.
+    Retrieve, update, or delete a node by pk.
     """
     try:
-        node = Node.objects.get(uuid=uuid, is_deleted=False)
+        node = Node.objects.get(pk=pk, is_deleted=False)
     except Node.DoesNotExist:
         return Response({"error": "Node not found"}, status=status.HTTP_404_NOT_FOUND)
 

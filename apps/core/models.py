@@ -1,26 +1,5 @@
 from django.db import models
 from django.utils import timezone
-import uuid
-
-
-class TimeStampedModel(models.Model):
-    """
-    Provides creation and update timestamps.
-    Used for auditability and traceability.
-    """
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        editable=False,
-        verbose_name="Creation date"
-    )
-    updated_at = models.DateTimeField(
-        auto_now=True,
-        verbose_name="Last update"
-    )
-
-    class Meta:
-        abstract = True
-        ordering = ("-created_at",)
 
 
 class StatusModel(models.Model):
@@ -62,23 +41,7 @@ class SoftDeleteModel(models.Model):
         self.save(update_fields=["is_deleted", "deleted_at"])
 
 
-class UUIDModel(models.Model):
-    """
-    Provides a UUID field for public-safe identification.
-    """
-    uuid = models.UUIDField(
-        default=uuid.uuid4,
-        editable=False,
-        unique=True
-    )
-
-    class Meta:
-        abstract = True
-
-
 class BaseModel(
-    UUIDModel,
-    TimeStampedModel,
     StatusModel,
     SoftDeleteModel
 ):

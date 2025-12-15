@@ -1,6 +1,8 @@
 from django.db import models
+from django.contrib.auth import get_user_model
 from apps.core.models import BaseModel
 
+User = get_user_model()
 
 class Node(BaseModel):
     """
@@ -39,7 +41,11 @@ class Node(BaseModel):
         blank=True,
         verbose_name="Longitude"
     )
-
+    user = models.ForeignKey(
+        User,
+        on_delete=models.DO_NOTHING,  # no elimina el nodo físicamente
+        related_name="nodes"
+    )
     class Meta:
         verbose_name = "Node"
         verbose_name_plural = "Nodes"
