@@ -37,7 +37,7 @@ def sensor_list_create(request):
 
 
 @api_view(['GET', 'PATCH', 'DELETE'])
-@permission_classes([IsOwnerAndAdminOrReadOnly])
+@permission_classes([IsAdminOrReadOnly])
 def sensor_detail(request, pk):
     """
     Retrieve, update, or delete a sensor by pk.
@@ -55,6 +55,8 @@ def sensor_detail(request, pk):
         return Response(serializer.data)
 
     if request.method == 'PATCH':
+        if request.user != sensor.node.user:
+            return Response(status=status.HTTP_403_FORBIDDEN)
         serializer = SensorSerializer(
             sensor,
             data=request.data,
@@ -69,6 +71,8 @@ def sensor_detail(request, pk):
         )
 
     if request.method == 'DELETE':
+        if request.user != sensor.node.user:
+            return Response(status=status.HTTP_403_FORBIDDEN)
         sensor.is_deleted = True
         sensor.save(update_fields=['is_deleted'])
         return Response(status=status.HTTP_204_NO_CONTENT)

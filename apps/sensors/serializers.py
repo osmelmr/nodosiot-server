@@ -13,12 +13,8 @@ class SensorSerializer(serializers.ModelSerializer):
             "unit",
             "is_active",
             "is_deleted",
-            "created_at",
-            "updated_at",
         )
         read_only_fields = (
             "id",
             "is_deleted",
-            "created_at",
-            "updated_at",
         )

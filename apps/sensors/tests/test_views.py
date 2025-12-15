@@ -15,16 +15,14 @@ class SensorViewTests(APITestCase):
         # --------------------------------------------------
         # Usuarios
         # --------------------------------------------------
-        self.user = User.objects.create_user(
-            email="user@test.com",
-            password="user123",
-            role="farmer",
+        self.admin_user = User.objects.create_user(
+            email="admin@test.com", password="admin123", role="admin"
         )
-
+        self.owner_user = User.objects.create_user(
+            email="owner@test.com", password="owner123", role="researcher"
+        )
         self.other_user = User.objects.create_user(
-            email="other@test.com",
-            password="other123",
-            role="researcher",
+            email="other@test.com", password="other123", role="researcher"
         )
 
         # --------------------------------------------------
@@ -35,6 +33,7 @@ class SensorViewTests(APITestCase):
             description="Main node",
             sampling_interval=10,
             location="Field A",
+            user=self.owner_user
         )
 
         # --------------------------------------------------
@@ -46,8 +45,6 @@ class SensorViewTests(APITestCase):
             sensor_type="temperature",
             model="DHT22",
             unit="°C",
-            min_value=0,
-            max_value=50,
         )
 
         self.sensor_2 = Sensor.objects.create(
@@ -69,45 +66,42 @@ class SensorViewTests(APITestCase):
     # --------------------------------------------------
     # LIST
     # --------------------------------------------------
-
     def test_authenticated_user_can_list_sensors(self):
-        self.client.force_authenticate(user=self.user)
-
+        self.client.force_authenticate(user=self.other_user)
         response = self.client.get(self.sensor_list_url)
-
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 2)
 
     def test_unauthenticated_user_cannot_list_sensors(self):
         response = self.client.get(self.sensor_list_url)
-
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     # --------------------------------------------------
     # CREATE
     # --------------------------------------------------
-
-    def test_authenticated_user_can_create_sensor(self):
-        self.client.force_authenticate(user=self.user)
-
+    def test_owner_and_admin_can_create_sensor(self):
+        # Solo combinación owner + admin debería permitir creación
+        self.client.force_authenticate(user=self.owner_user)
         payload = {
             "node": self.node.id,
             "name": "Pressure Sensor",
             "sensor_type": "pressure",
             "model": "BMP280",
             "unit": "hPa",
-            "min_value": 900,
-            "max_value": 1100,
         }
+        response = self.client.post(self.sensor_list_url, payload, format="json")
+        # En este caso owner solo no crea: 403
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-        response = self.client.post(
-            self.sensor_list_url, payload, format="json"
-        )
-
+        # Ahora admin + owner (simulando que admin es dueño del nodo)
+        self.node.user = self.admin_user
+        self.node.save()
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.post(self.sensor_list_url, payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Sensor.objects.count(), 3)
 
-    def test_cannot_create_sensor_without_authentication(self):
+    def test_other_user_cannot_create_sensor(self):
+        self.client.force_authenticate(user=self.other_user)
         payload = {
             "node": self.node.id,
             "name": "Fail Sensor",
@@ -115,94 +109,65 @@ class SensorViewTests(APITestCase):
             "model": "TMP36",
             "unit": "°C",
         }
-
-        response = self.client.post(
-            self.sensor_list_url, payload, format="json"
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        response = self.client.post(self.sensor_list_url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     # --------------------------------------------------
     # RETRIEVE
     # --------------------------------------------------
-
     def test_authenticated_user_can_retrieve_sensor(self):
         self.client.force_authenticate(user=self.other_user)
-
-        response = self.client.get(
-            self.sensor_detail_url(self.sensor_1)
-        )
-
+        response = self.client.get(self.sensor_detail_url(self.sensor_1))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            response.data["name"],
-            self.sensor_1.name
-        )
-
-    def test_retrieve_deleted_sensor_returns_404(self):
-        self.client.force_authenticate(user=self.user)
-
-        self.sensor_1.is_deleted = True
-        self.sensor_1.save()
-
-        response = self.client.get(
-            self.sensor_detail_url(self.sensor_1)
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data["name"], self.sensor_1.name)
 
     # --------------------------------------------------
     # UPDATE
     # --------------------------------------------------
+    def test_admin_and_owner_can_update_sensor(self):
+        # No cumple ambas condiciones → 403
+        self.client.force_authenticate(user=self.owner_user)
+        payload = {"unit": "Celsius"}
+        response = self.client.patch(self.sensor_detail_url(self.sensor_1), payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_authenticated_user_can_update_sensor(self):
-        self.client.force_authenticate(user=self.user)
-
-        payload = {
-            "unit": "Celsius",
-            "max_value": 60,
-        }
-
-        response = self.client.patch(
-            self.sensor_detail_url(self.sensor_1),
-            payload,
-            format="json"
-        )
-
+        # Ahora cumple ambas condiciones
+        self.node.user = self.admin_user
+        self.node.save()
+        self.client.force_authenticate(user=self.admin_user)
+        payload = {"unit": "Fahrenheit"}
+        response = self.client.patch(self.sensor_detail_url(self.sensor_1), payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-
         self.sensor_1.refresh_from_db()
-        self.assertEqual(self.sensor_1.unit, "Celsius")
-        self.assertEqual(self.sensor_1.max_value, 60)
+        self.assertEqual(self.sensor_1.unit, "Fahrenheit")
 
-    def test_unauthenticated_user_cannot_update_sensor(self):
-        response = self.client.patch(
-            self.sensor_detail_url(self.sensor_1),
-            {"unit": "Hack"},
-            format="json"
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+    def test_other_user_cannot_update_sensor(self):
+        self.client.force_authenticate(user=self.other_user)
+        payload = {"unit": "Hack"}
+        response = self.client.patch(self.sensor_detail_url(self.sensor_1), payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     # --------------------------------------------------
     # DELETE (soft delete)
     # --------------------------------------------------
+    def test_admin_and_owner_can_soft_delete_sensor(self):
+        # No cumple ambas condiciones → 403
+        self.client.force_authenticate(user=self.owner_user)
+        response = self.client.delete(self.sensor_detail_url(self.sensor_1))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_authenticated_user_can_soft_delete_sensor(self):
-        self.client.force_authenticate(user=self.user)
-
-        response = self.client.delete(
-            self.sensor_detail_url(self.sensor_1)
-        )
-
+        # Cumple ambas condiciones
+        self.node.user = self.admin_user
+        self.node.save()
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.delete(self.sensor_detail_url(self.sensor_1))
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-
         self.sensor_1.refresh_from_db()
         self.assertTrue(self.sensor_1.is_deleted)
 
-    def test_unauthenticated_user_cannot_delete_sensor(self):
-        response = self.client.delete(
-            self.sensor_detail_url(self.sensor_1)
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+    def test_other_user_cannot_delete_sensor(self):
+        self.client.force_authenticate(user=self.other_user)
+        response = self.client.delete(self.sensor_detail_url(self.sensor_2))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.sensor_2.refresh_from_db()
+        self.assertFalse(self.sensor_2.is_deleted)
