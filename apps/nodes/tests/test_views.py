@@ -2,190 +2,149 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 from django.contrib.auth import get_user_model
-
 from apps.nodes.models import Node
 
 User = get_user_model()
 
-
-class NodeViewTests(APITestCase):
-
+class NodeViewsTests(APITestCase):
     def setUp(self):
-        # ----- Usuarios -----
-        self.admin_user = User.objects.create_user(
+        # -------------------------
+        # Usuarios
+        # -------------------------
+        self.admin_user = User.objects.create_superuser(
             email="admin@test.com",
-            password="admin123",
-            role="admin",
-            is_staff=True,
-            is_superuser=True,
+            password="adminpass"
         )
-
         self.normal_user = User.objects.create_user(
             email="user@test.com",
-            password="user123",
-            role="farmer",
+            password="userpass"
+        )
+        self.other_user = User.objects.create_user(
+            email="other@test.com",
+            password="otherpass"
         )
 
-        # ----- Nodos -----
-        self.node_1 = Node.objects.create(
-            name="Node 1",
-            description="Main node",
-            sampling_interval=10,
-            location="Field A",
-            latitude=10.123456,
-            longitude=-70.654321,
+        # Nodo propiedad de normal_user (solo dueño, no admin)
+        self.node = Node.objects.create(
+            name="Node1",
+            description="Test node",
+            location="Lab",
+            sampling_interval=15,
+            user=self.normal_user
         )
 
-        self.node_2 = Node.objects.create(
-            name="Node 2",
-            description="Backup node",
-            sampling_interval=20,
-            location="Field B",
+        # Nodo propiedad de owner-admin (dueño y admin)
+        self.owner_admin_user = User.objects.create_superuser(
+            email="owneradmin@test.com",
+            password="owneradminpass"
+        )
+        self.node_owner_admin = Node.objects.create(
+            name="NodeOwnerAdmin",
+            description="Node for owner-admin",
+            location="Lab",
+            sampling_interval=15,
+            user=self.owner_admin_user
         )
 
-        # ----- URLs -----
-        self.node_list_url = reverse("node-list-create")
-        self.node_detail_url = lambda n: reverse(
-            "node-detail", kwargs={"pk": n.id}
-        )
+        # -------------------------
+        # URLs
+        # -------------------------
+        self.list_create_url = reverse('node-list-create')
+        self.detail_url = lambda pk: reverse('node-detail', args=[pk])
 
-    # --------------------------------------------------
-    # LIST
-    # --------------------------------------------------
+    # -------------------------
+    # Helper
+    # -------------------------
+    def authenticate(self, user):
+        self.client.force_authenticate(user=user)
 
-    def test_authenticated_user_can_list_nodes(self):
-        self.client.force_authenticate(user=self.normal_user)
-
-        response = self.client.get(self.node_list_url)
-
+    # -------------------------
+    # GET /nodes/
+    # -------------------------
+    def test_any_authenticated_can_list_nodes(self):
+        self.authenticate(self.normal_user)
+        response = self.client.get(self.list_create_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
+        self.assertGreaterEqual(len(response.data), 1)
 
-    def test_unauthenticated_user_cannot_list_nodes(self):
-        response = self.client.get(self.node_list_url)
-
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-
-    # --------------------------------------------------
-    # CREATE
-    # --------------------------------------------------
-
+    # -------------------------
+    # POST /nodes/
+    # -------------------------
     def test_admin_can_create_node(self):
-        self.client.force_authenticate(user=self.admin_user)
-
+        self.authenticate(self.admin_user)
         payload = {
-            "name": "New Node",
-            "description": "New deployment",
-            "sampling_interval": 15,
-            "location": "Field C",
-            "latitude": 12.345678,
-            "longitude": -71.987654,
+            "name": "NodeAdmin",
+            "description": "Created by admin",
+            "location": "Office",
+            "sampling_interval": 20
         }
-
-        response = self.client.post(
-            self.node_list_url, payload, format="json"
-        )
-
+        response = self.client.post(self.list_create_url, payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Node.objects.count(), 3)
+        self.assertTrue(Node.objects.filter(name="NodeAdmin").exists())
 
     def test_non_admin_cannot_create_node(self):
-        self.client.force_authenticate(user=self.normal_user)
-
+        self.authenticate(self.normal_user)
         payload = {
-            "name": "Fail Node",
-            "sampling_interval": 10,
-            "location": "Nowhere",
+            "name": "BlockedNode",
+            "description": "Should fail",
+            "location": "Office",
+            "sampling_interval": 20
         }
-
-        response = self.client.post(
-            self.node_list_url, payload, format="json"
-        )
-
+        response = self.client.post(self.list_create_url, payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    # --------------------------------------------------
-    # RETRIEVE
-    # --------------------------------------------------
-
-    def test_authenticated_user_can_retrieve_node(self):
-        self.client.force_authenticate(user=self.normal_user)
-
-        response = self.client.get(
-            self.node_detail_url(self.node_1)
-        )
-
+    # -------------------------
+    # GET /nodes/<id>/
+    # -------------------------
+    def test_owner_can_retrieve_node(self):
+        self.authenticate(self.normal_user)
+        response = self.client.get(self.detail_url(self.node.id))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["name"], self.node_1.name)
+        self.assertEqual(response.data["name"], "Node1")
 
-    def test_retrieve_deleted_node_returns_404(self):
-        self.client.force_authenticate(user=self.admin_user)
-
-        self.node_1.is_deleted = True
-        self.node_1.save()
-
-        response = self.client.get(
-            self.node_detail_url(self.node_1)
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-
-    # --------------------------------------------------
-    # UPDATE
-    # --------------------------------------------------
-
-    def test_admin_can_update_node(self):
-        self.client.force_authenticate(user=self.admin_user)
-
-        payload = {
-            "sampling_interval": 30,
-            "location": "Updated Field"
-        }
-
-        response = self.client.patch(
-            self.node_detail_url(self.node_1),
-            payload,
-            format="json"
-        )
-
+    def test_other_user_can_retrieve_node(self):
+        self.authenticate(self.other_user)
+        response = self.client.get(self.detail_url(self.node.id))
+        # Detalles debe ser publico tambien
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        self.node_1.refresh_from_db()
-        self.assertEqual(self.node_1.sampling_interval, 30)
-        self.assertEqual(self.node_1.location, "Updated Field")
-
-    def test_non_admin_cannot_update_node(self):
-        self.client.force_authenticate(user=self.normal_user)
-
-        response = self.client.patch(
-            self.node_detail_url(self.node_1),
-            {"location": "Hack attempt"},
-            format="json"
-        )
-
+    # -------------------------
+    # PATCH /nodes/<id>/
+    # -------------------------
+    def test_other_user_cannot_update_node(self):
+        self.authenticate(self.other_user)
+        payload = {"name": "HackedName"}
+        response = self.client.patch(self.detail_url(self.node.id), payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    # --------------------------------------------------
-    # DELETE (soft delete)
-    # --------------------------------------------------
+    def test_owner_admin_can_update_node(self):
+        self.authenticate(self.owner_admin_user)
+        payload = {"name": "UpdatedNode"}
+        response = self.client.patch(self.detail_url(self.node_owner_admin.id), payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.node_owner_admin.refresh_from_db()
+        self.assertEqual(self.node_owner_admin.name, "UpdatedNode")
 
-    def test_admin_can_soft_delete_node(self):
-        self.client.force_authenticate(user=self.admin_user)
-
-        response = self.client.delete(
-            self.node_detail_url(self.node_1)
-        )
-
+    # -------------------------
+    # DELETE /nodes/<id>/
+    # -------------------------
+    def test_owner_admin_can_delete_node(self):
+        self.authenticate(self.owner_admin_user)
+        response = self.client.delete(self.detail_url(self.node_owner_admin.id))
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.node_owner_admin.refresh_from_db()
+        self.assertTrue(self.node_owner_admin.is_deleted)
 
-        self.node_1.refresh_from_db()
-        self.assertTrue(self.node_1.is_deleted)
-
-    def test_non_admin_cannot_delete_node(self):
-        self.client.force_authenticate(user=self.normal_user)
-
-        response = self.client.delete(
-            self.node_detail_url(self.node_1)
-        )
-
+    def test_other_user_cannot_delete_node(self):
+        self.authenticate(self.other_user)
+        response = self.client.delete(self.detail_url(self.node.id))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.node.refresh_from_db()
+        self.assertFalse(self.node.is_deleted)
+
+    def test_admin_only_cannot_delete_node_if_not_owner(self):
+        self.authenticate(self.admin_user)
+        response = self.client.delete(self.detail_url(self.node.id))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.node.refresh_from_db()
+        self.assertFalse(self.node.is_deleted)

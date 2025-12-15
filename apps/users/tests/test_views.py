@@ -8,7 +8,7 @@ User = get_user_model()
 
 class UserViewsTests(APITestCase):
     def setUp(self):
-        # Creamos un usuario admin
+        # Creamos un usuario admin (superuser)
         self.admin_user = User.objects.create_superuser(
             email="admin@test.com",
             password="adminpass"
@@ -20,9 +20,9 @@ class UserViewsTests(APITestCase):
             password="userpass"
         )
 
-        # Endpoints
-        self.list_create_url = reverse('user_list_create')  # define tu path name
-        self.login_url = reverse('user_login')
+        # Endpoints (usamos los names que definiste en urls.py)
+        self.list_create_url = reverse('user-list-create')
+        self.login_url = reverse('user-login')
 
     def authenticate(self, user):
         self.client.force_authenticate(user=user)
@@ -69,7 +69,7 @@ class UserViewsTests(APITestCase):
     # -------------------------
     def test_admin_can_update_user(self):
         self.authenticate(self.admin_user)
-        url = reverse('user_detail', args=[self.normal_user.id])
+        url = reverse('user-detail', args=[self.normal_user.id])
         payload = {"role": "admin", "password": "newpass456"}
         response = self.client.patch(url, payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -82,7 +82,7 @@ class UserViewsTests(APITestCase):
     # -------------------------
     def test_admin_can_delete_user(self):
         self.authenticate(self.admin_user)
-        url = reverse('user_detail', args=[self.normal_user.id])
+        url = reverse('user-detail', args=[self.normal_user.id])
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(User.objects.filter(id=self.normal_user.id).exists())
